@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-ink-950 text-steel-100 font-body antialiased;
+  }
+  ::selection {
+    @apply bg-brand-500/40 text-white;
+  }
+  * {
+    scrollbar-color: #2a3a5c #0e1526;
+    scrollbar-width: thin;
+  }
+}
+
+@layer utilities {
+  .font-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(220%); }
+}
+.animate-scan {
+  animation: scan 2.2s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(52, 178, 123, 0.45); }
+  100% { box-shadow: 0 0 0 10px rgba(52, 178, 123, 0); }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 1.6s ease-out infinite;
+}
