@@ -10,7 +10,7 @@ import type { AttendanceStatus, DeviceStatus, DeviceType } from "../../types";
 
 interface SummaryResponse {
   date: string;
-  summary: Record<AttendanceStatus, number>;
+  summary: Partial<Record<AttendanceStatus, number>>;
 }
 interface EventRow {
   id: string;
@@ -33,16 +33,26 @@ interface EmployeeRow {
 }
 
 export default function HRDashboard() {
-  const { data: summaryRes, loading: l1, error: e1, reload: r1 } = useApi<SummaryResponse>(() => getAttendanceSummary());
+  // Pass stable function references to avoid infinite fetch loops
+  const { data: summaryRes, loading: l1, error: e1, reload: r1 } = useApi<SummaryResponse>(getAttendanceSummary);
   const { data: events, loading: l2, error: e2 } = useApi<EventRow[]>(() => getEvents({ limit: 8 }));
-  const { data: devices, loading: l3, error: e3 } = useApi<DeviceRow[]>(() => getDevices());
-  const { data: employees, loading: l4, error: e4 } = useApi<EmployeeRow[]>(() => getEmployees());
+  const { data: devices, loading: l3, error: e3 } = useApi<DeviceRow[]>(getDevices);
+  const { data: employees, loading: l4, error: e4 } = useApi<EmployeeRow[]>(getEmployees);
 
   const loading = l1 || l2 || l3 || l4;
   const error = e1 || e2 || e3 || e4;
 
   const summary = summaryRes?.summary;
   const activeEmployees = (employees ?? []).filter((e) => e.employmentStatus === "ACTIVE").length;
+
+  const presentCount = summary?.PRESENT ?? 0;
+  const lateCount = summary?.LATE ?? 0;
+  const absentCount = summary?.ABSENT ?? 0;
+  const missingCount = summary?.MISSING_PUNCH ?? 0;
+
+  const attendancePercentage = activeEmployees > 0 
+    ? `${Math.round((presentCount / activeEmployees) * 100)}% of workforce` 
+    : undefined;
 
   return (
     <div>
@@ -55,20 +65,20 @@ export default function HRDashboard() {
       {loading && <LoadingState label="Loading dashboard…" />}
       {error && <ErrorState message={error} onRetry={r1} />}
 
-      {!loading && !error && summary && (
+      {!loading && !error && (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <StatCard label="Active Employees" value={String(activeEmployees)} icon={Users} hint="across all departments" />
             <StatCard
               label="Present Today"
-              value={String(summary.PRESENT)}
+              value={String(presentCount)}
               icon={UserCheck}
               tone="present"
-              hint={activeEmployees ? `${Math.round((summary.PRESENT / activeEmployees) * 100)}% of workforce` : undefined}
+              hint={attendancePercentage}
             />
-            <StatCard label="Late Arrivals" value={String(summary.LATE)} icon={Clock3} tone="late" />
-            <StatCard label="Absent" value={String(summary.ABSENT)} icon={AlertTriangle} tone="absent" />
-            <StatCard label="Missing Punch" value={String(summary.MISSING_PUNCH)} icon={AlertTriangle} tone="missing" />
+            <StatCard label="Late Arrivals" value={String(lateCount)} icon={Clock3} tone="late" />
+            <StatCard label="Absent" value={String(absentCount)} icon={AlertTriangle} tone="absent" />
+            <StatCard label="Missing Punch" value={String(missingCount)} icon={AlertTriangle} tone="missing" />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -115,8 +125,10 @@ export default function HRDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                        <span className={`text-xs font-medium ${meta.color}`}>{meta.label}</span>
+                        <span className={`h-1.5 w-1.5 rounded-full ${meta?.dot ?? "bg-steel-500"}`} />
+                        <span className={`text-xs font-medium ${meta?.color ?? "text-steel-400"}`}>
+                          {meta?.label ?? d.status}
+                        </span>
                       </div>
                     </div>
                   );

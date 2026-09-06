@@ -1,7 +1,6 @@
-// Types mirror Section 11 (Data Architecture) of the BPO RFID master document.
-// Keeping these close to the spec means the UI and the future backend agree on shape.
+// Types mirror the BPO Attendance system architecture and backend API responses.
 
-export type Role = "HR" | "MANAGER" | "CEO" | "EMPLOYEE";
+export type Role = "HR" | "MANAGER" | "CEO" | "EMPLOYEE" | "ADMIN";
 
 export type AttendanceStatus =
   | "PRESENT"
@@ -11,7 +10,8 @@ export type AttendanceStatus =
   | "ON_LEAVE"
   | "HOLIDAY"
   | "WEEK_OFF"
-  | "CORRECTED";
+  | "CORRECTED"
+  | "NOT_CHECKED_IN";
 
 export type CardStatus = "UNASSIGNED" | "ACTIVE" | "BLOCKED" | "RETIRED";
 
@@ -22,7 +22,7 @@ export type DeviceType = "ENTRY" | "EXIT";
 export interface Department {
   id: string;
   name: string;
-  headCount: number;
+  headCount?: number;
 }
 
 export interface Shift {
@@ -39,13 +39,14 @@ export interface Employee {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   departmentId: string;
-  designation: string;
+  designation?: string;
   shiftId: string;
   employmentStatus: "ACTIVE" | "INACTIVE";
   joiningDate: string;
-  managerId?: string;
-  avatarSeed: string;
+  managerId?: string | null;
+  avatarSeed?: string;
 }
 
 export interface RfidCard {
@@ -83,10 +84,10 @@ export interface AttendanceRecord {
   id: string;
   employeeId: string;
   attendanceDate: string;
-  punchIn: string | null;
-  punchOut: string | null;
-  workingMinutes: number | null;
-  lateMinutes: number;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  workingMinutes?: number | null;
+  lateMinutes?: number;
   status: AttendanceStatus;
 }
 
@@ -95,29 +96,71 @@ export interface Correction {
   attendanceRecordId: string;
   employeeId: string;
   correctionType: "PUNCH_IN" | "PUNCH_OUT" | "STATUS";
-  oldValue: string;
+  oldValue?: string;
   newValue: string;
   reason: string;
   requestedBy: string;
-  approvedBy: string | null;
+  approvedBy?: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
 }
 
-export interface AuditLog {
+export interface LeaveRequest {
   id: string;
-  actorUserId: string;
+  employeeId: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt?: string;
+}
+
+export interface OvertimeRequest {
+  id: string;
+  employeeId: string;
+  date: string;
+  hours: number;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt?: string;
+}
+
+export interface AuditLog {
+  id: number | string;
+  user_id?: string | null;
+  userId?: string | null;
   action: string;
-  entityType: string;
-  entityId: string;
-  oldValue?: string;
-  newValue?: string;
-  timestamp: string;
+  details?: string | null;
+  ip_address?: string | null;
+  ipAddress?: string | null;
+  created_at?: string;
+  createdAt?: string;
+}
+
+export interface HrDashboardMetrics {
+  date: string;
+  metrics: {
+    totalEmployees: number;
+    presentToday: number;
+    lateToday: number;
+    absentToday: number;
+    pendingLeaves: number;
+    pendingOvertime: number;
+  };
+}
+
+export interface EmployeeDashboardMetrics {
+  employeeId: string;
+  todayStatus: AttendanceStatus;
+  todayDetails?: AttendanceRecord | null;
+  monthlyPresentDays: number;
 }
 
 export interface CurrentUser {
   id: string;
   name: string;
+  email?: string;
   role: Role;
   employeeId: string;
 }

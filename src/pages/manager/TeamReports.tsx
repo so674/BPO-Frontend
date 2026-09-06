@@ -1,76 +1,168 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useState, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/ui/PageHeader";
 import Panel from "../../components/ui/Panel";
 import { LoadingState, ErrorState } from "../../components/ui/AsyncState";
-import { getMonthlyReport } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
-import { formatMinutes } from "../../lib/status";
-
-interface MonthlyRow {
-  employee_id: string;
-  employee_name: string;
-  present_days: number;
-  late_days: number;
-  absent_days: number;
-  total_working_minutes: number;
-}
+import { getTeamReport } from "../../lib/api";
 
 export default function TeamReports() {
-  const { data: monthly, loading, error, reload } = useApi<MonthlyRow[]>(() => getMonthlyReport());
+  const navigate = useNavigate();
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
 
-  const chartData = (monthly ?? []).map((m) => ({
-    name: m.employee_name.split(" ")[0],
-    totalMinutes: m.total_working_minutes,
-  }));
+  // Memoize the API call to prevent infinite re-render loops
+  const fetchReport = useCallback(
+    () => getTeamReport(selectedMonth),
+    [selectedMonth]
+  );
+
+  const {
+    data: apiData,
+    loading,
+    error,
+    reload,
+  } = useApi<any>(fetchReport);
+
+  // Safely extract array records from various backend payload shapes
+  const rawRows: any[] = Array.isArray(apiData)
+    ? apiData
+    : Array.isArray(apiData?.records)
+    ? apiData.records
+    : Array.isArray(apiData?.summary)
+    ? apiData.summary
+    : Array.isArray(apiData?.rows)
+    ? apiData.rows
+    : [];
+
+  const reportList = rawRows
+    .filter((r: any) => Boolean(r) && typeof r === "object")
+    .map((r: any, idx: number) => {
+      const workingMins = Number(
+        r.totalWorkingMinutes ?? r.total_working_minutes ?? 0
+      );
+      const hrs = Math.floor(workingMins / 60);
+      const mins = workingMins % 60;
+
+      return {
+        id: String(r.employeeId || r.employee_id || `emp-${idx}`),
+        code: String(r.employeeCode || r.employee_code || "—"),
+        name: String(r.employeeName || r.employee_name || "Unknown Employee"),
+        department: String(
+          r.departmentName || r.department_name || "Unassigned"
+        ),
+        present: Number(r.presentDays ?? r.present_days ?? 0),
+        late: Number(r.lateDays ?? r.late_days ?? 0),
+        absent: Number(r.absentDays ?? r.absent_days ?? 0),
+        missing: Number(r.missingPunchDays ?? r.missing_punch_days ?? 0),
+        formattedHours: `${hrs}h ${mins}m`,
+      };
+    });
 
   return (
-    <div>
+    <div className="space-y-6">
+      {/* Top escape and navigation bar */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 rounded-lg border border-line bg-ink-900 px-3 py-1.5 text-xs text-steel-300 hover:bg-ink-800"
+        >
+          ← Back
+        </button>
+        <Link
+          to="/dashboard"
+          className="text-xs text-brand-400 hover:underline"
+        >
+          Go to Dashboard
+        </Link>
+      </div>
+
       <PageHeader
         eyebrow="Manager Portal"
-        title="Team reports"
-        description="This month's working-hour totals and exception counts for your team."
+        title="Team Attendance Reports"
+        description="Monthly attendance metrics and working-hour summaries for your team."
       />
 
-      {loading && <LoadingState label="Loading team reports…" />}
-      {error && <ErrorState message={error} onRetry={reload} />}
-
-      {!loading && !error && (
-        <>
-          <Panel title="Monthly working hours" eyebrow="Per team member">
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid stroke="#22304C" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" stroke="#647391" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#647391" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ background: "#111A2E", border: "1px solid #22304C", borderRadius: 8, fontSize: 12 }}
-                    labelStyle={{ color: "#E8ECF5" }}
-                    formatter={(v) => formatMinutes(Number(v))}
-                  />
-                  <Bar dataKey="totalMinutes" fill="#5561A6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Panel>
-
-          <div className="mt-5">
-            <Panel title="Exceptions this month" eyebrow="Late & absent counts">
-              <div className="space-y-2.5">
-                {(monthly ?? []).map((m) => (
-                  <div key={m.employee_id} className="flex items-center justify-between rounded-lg border border-line bg-ink-900 px-3.5 py-2.5">
-                    <span className="text-sm text-steel-300">{m.employee_name}</span>
-                    <div className="flex gap-4 text-xs">
-                      <span className="text-status-late">{m.late_days} late</span>
-                      <span className="text-status-absent">{m.absent_days} absent</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Panel>
+      <Panel>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-steel-400">Select Month:</label>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="rounded-lg border border-line bg-ink-900 px-3 py-1.5 text-sm text-steel-100 focus:outline-none"
+            />
           </div>
-        </>
-      )}
+        </div>
+
+        {loading && <LoadingState label="Generating team report…" />}
+
+        {error && <ErrorState message={error} onRetry={reload} />}
+
+        {!loading && !error && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wider text-steel-500">
+                  <th className="pb-3 font-medium">Employee</th>
+                  <th className="pb-3 font-medium">Code</th>
+                  <th className="pb-3 font-medium">Department</th>
+                  <th className="pb-3 font-medium text-center">Present</th>
+                  <th className="pb-3 font-medium text-center">Late</th>
+                  <th className="pb-3 font-medium text-center">Absent</th>
+                  <th className="pb-3 font-medium text-center">Missing</th>
+                  <th className="pb-3 font-medium text-right">Total Hours</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-line">
+                {reportList.map((row: any) => (
+                  <tr key={row.id} className="hover:bg-ink-800">
+                    <td className="py-3 font-medium text-steel-100">
+                      {row.name}
+                    </td>
+                    <td className="py-3 font-mono text-steel-400">
+                      {row.code}
+                    </td>
+                    <td className="py-3 text-steel-400">
+                      {row.department}
+                    </td>
+                    <td className="py-3 text-center text-status-present font-semibold">
+                      {row.present}
+                    </td>
+                    <td className="py-3 text-center text-status-late font-semibold">
+                      {row.late}
+                    </td>
+                    <td className="py-3 text-center text-status-absent font-semibold">
+                      {row.absent}
+                    </td>
+                    <td className="py-3 text-center text-status-missing font-semibold">
+                      {row.missing}
+                    </td>
+                    <td className="py-3 text-right font-mono text-steel-300">
+                      {row.formattedHours}
+                    </td>
+                  </tr>
+                ))}
+
+                {reportList.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="py-8 text-center text-sm text-steel-500"
+                    >
+                      No team attendance records found for this period.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

@@ -10,30 +10,22 @@ import AddEmployeeModal from "../../components/hr/AddEmployeeModal";
 
 interface EmployeeRow {
   id: string;
-  employeeCode: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  departmentName: string;
-  designation: string;
-  shiftName: string;
-  employmentStatus: "ACTIVE" | "INACTIVE";
+  employeeCode?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  departmentName?: string;
+  designation?: string;
+  shiftName?: string;
+  employmentStatus?: "ACTIVE" | "INACTIVE";
 }
 
 export default function Employees() {
   const [searchParams] = useSearchParams();
-
-  // Get search value from the URL.
-  // Example:
-  // /hr/employees?search=Emp342
   const urlSearch = searchParams.get("search") ?? "";
-
   const [query, setQuery] = useState(urlSearch);
-
   const [showAddModal, setShowAddModal] = useState(false);
-
-  const [statusUpdatingId, setStatusUpdatingId] =
-    useState<string | null>(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
   const {
     data: employees,
@@ -42,24 +34,18 @@ export default function Employees() {
     reload,
   } = useApi<EmployeeRow[]>(() => getEmployees());
 
-  // Keep the page search box synchronized with the URL.
   useEffect(() => {
     setQuery(urlSearch);
   }, [urlSearch]);
 
-  // Filter employees using the search query.
-  const filtered = (employees ?? []).filter((e) =>
-    `${e.firstName} ${e.lastName} ${e.employeeCode}`
+  const filtered = (Array.isArray(employees) ? employees : []).filter((e) =>
+    `${e.firstName || ""} ${e.lastName || ""} ${e.employeeCode || ""}`
       .toLowerCase()
-      .includes(query.toLowerCase()),
+      .includes(query.toLowerCase())
   );
 
   const handleToggleStatus = async (e: EmployeeRow) => {
-    const next =
-      e.employmentStatus === "ACTIVE"
-        ? "INACTIVE"
-        : "ACTIVE";
-
+    const next = e.employmentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     setStatusUpdatingId(e.id);
 
     try {
@@ -69,7 +55,7 @@ export default function Employees() {
       alert(
         err instanceof Error
           ? err.message
-          : "Failed to update employee status",
+          : "Failed to update employee status"
       );
     } finally {
       setStatusUpdatingId(null);
@@ -105,11 +91,7 @@ export default function Employees() {
 
       <Panel>
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-line bg-ink-900 px-3 py-2">
-          <Search
-            size={14}
-            className="text-steel-500"
-          />
-
+          <Search size={14} className="text-steel-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -118,126 +100,96 @@ export default function Employees() {
           />
         </div>
 
-        {loading && (
-          <LoadingState label="Loading employees…" />
-        )}
+        {loading && <LoadingState label="Loading employees…" />}
 
-        {error && (
-          <ErrorState
-            message={error}
-            onRetry={reload}
-          />
-        )}
+        {error && <ErrorState message={error} onRetry={reload} />}
 
         {!loading && !error && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-line text-xs uppercase tracking-wider text-steel-500">
-                  <th className="pb-3 font-medium">
-                    Employee
-                  </th>
-
-                  <th className="pb-3 font-medium">
-                    Code
-                  </th>
-
-                  <th className="pb-3 font-medium">
-                    Department
-                  </th>
-
-                  <th className="pb-3 font-medium">
-                    Designation
-                  </th>
-
-                  <th className="pb-3 font-medium">
-                    Shift
-                  </th>
-
-                  <th className="pb-3 font-medium">
-                    Status
-                  </th>
-
-                  <th className="pb-3 font-medium text-right">
-                    Actions
-                  </th>
+                  <th className="pb-3 font-medium">Employee</th>
+                  <th className="pb-3 font-medium">Code</th>
+                  <th className="pb-3 font-medium">Department</th>
+                  <th className="pb-3 font-medium">Designation</th>
+                  <th className="pb-3 font-medium">Shift</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-line">
-                {filtered.map((e) => (
-                  <tr
-                    key={e.id}
-                    className="hover:bg-ink-800"
-                  >
-                    <td className="py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-[11px] font-semibold text-steel-100">
-                          {e.firstName[0]}
-                          {e.lastName[0]}
+                {filtered.map((e) => {
+                  const firstInitial = e.firstName?.[0]?.toUpperCase() || "?";
+                  const lastInitial = e.lastName?.[0]?.toUpperCase() || "";
+
+                  return (
+                    <tr key={e.id} className="hover:bg-ink-800">
+                      <td className="py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-[11px] font-semibold text-steel-100">
+                            {firstInitial}
+                            {lastInitial}
+                          </div>
+
+                          <div>
+                            <p className="text-steel-100">
+                              {e.firstName || "Unnamed"} {e.lastName || ""}
+                            </p>
+                            <p className="text-[11px] text-steel-500">
+                              {e.email || "No email"}
+                            </p>
+                          </div>
                         </div>
+                      </td>
 
-                        <div>
-                          <p className="text-steel-100">
-                            {e.firstName} {e.lastName}
-                          </p>
+                      <td className="py-3 font-mono text-steel-400">
+                        {e.employeeCode || "—"}
+                      </td>
 
-                          <p className="text-[11px] text-steel-500">
-                            {e.email}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
+                      <td className="py-3 text-steel-300">
+                        {e.departmentName || "Unassigned"}
+                      </td>
 
-                    <td className="py-3 font-mono text-steel-400">
-                      {e.employeeCode}
-                    </td>
+                      <td className="py-3 text-steel-300">
+                        {e.designation || "—"}
+                      </td>
 
-                    <td className="py-3 text-steel-300">
-                      {e.departmentName}
-                    </td>
+                      <td className="py-3 text-steel-300">
+                        {e.shiftName || "Unassigned"}
+                      </td>
 
-                    <td className="py-3 text-steel-300">
-                      {e.designation}
-                    </td>
+                      <td className="py-3">
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                            e.employmentStatus === "ACTIVE"
+                              ? "border-status-present/30 bg-status-present/10 text-status-present"
+                              : "border-line text-steel-500"
+                          }`}
+                        >
+                          {e.employmentStatus === "ACTIVE"
+                            ? "Active"
+                            : "Inactive"}
+                        </span>
+                      </td>
 
-                    <td className="py-3 text-steel-300">
-                      {e.shiftName}
-                    </td>
-
-                    <td className="py-3">
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-                          e.employmentStatus === "ACTIVE"
-                            ? "border-status-present/30 bg-status-present/10 text-status-present"
-                            : "border-line text-steel-500"
-                        }`}
-                      >
-                        {e.employmentStatus === "ACTIVE"
-                          ? "Active"
-                          : "Inactive"}
-                      </span>
-                    </td>
-
-                    <td className="py-3 text-right">
-                      <button
-                        onClick={() =>
-                          handleToggleStatus(e)
-                        }
-                        disabled={
-                          statusUpdatingId === e.id
-                        }
-                        className="rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-steel-300 hover:bg-ink-800 disabled:opacity-50"
-                      >
-                        {statusUpdatingId === e.id
-                          ? "Updating…"
-                          : e.employmentStatus === "ACTIVE"
-                          ? "Deactivate"
-                          : "Activate"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="py-3 text-right">
+                        <button
+                          onClick={() => handleToggleStatus(e)}
+                          disabled={statusUpdatingId === e.id}
+                          className="rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-steel-300 hover:bg-ink-800 disabled:opacity-50"
+                        >
+                          {statusUpdatingId === e.id
+                            ? "Updating…"
+                            : e.employmentStatus === "ACTIVE"
+                            ? "Deactivate"
+                            : "Activate"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {filtered.length === 0 && (
                   <tr>
